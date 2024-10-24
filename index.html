@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Pomodoro Timer</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Updated Font Awesome link -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
+  <style>
+    /* Styles for the circular progress bar */
+    .progress-ring {
+      position: relative;
+      width: 200px;
+      height: 200px;
+    }
+
+    .progress-ring circle {
+      transform: rotate(-90deg);
+      transform-origin: 50% 50%;
+      transition: stroke-dashoffset 1s linear;
+    }
+
+    /* Dark mode styles */
+    .dark-mode {
+      background-color: #1a202c;
+      color: #a0aec0;
+    }
+
+    .dark-mode body {
+      background-color: #1a202c;
+    }
+
+    /* Notification styles */
+    #notification {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background-color: #3182ce;
+      color: white;
+      padding: 10px;
+      border-radius: 5px;
+      display: none;
+    }
+
+    /* Completed Pomodoros Indicator */
+    #session-indicator {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 1rem;
+    }
+
+    .pomo-icon {
+      color: tomato;
+      margin: 0 5px;
+      font-size: 1.5rem;
+    }
+
+    .pomo-icon.completed {
+      color: gray;
+    }
+
+    /* Active mode button */
+    .mode-button.active {
+      border-bottom: 2px solid currentColor;
+    }
+
+    /* Adjust main content spacing for fixed header */
+    .main-content {
+      margin-top: 80px;
+    }
+  </style>
+</head>
+
+<body class="bg-gray-100">
+  <!-- Header -->
+  <div class="fixed top-0 left-0 right-0 bg-white p-4 flex justify-between items-center shadow">
+    <!-- Right side: Settings and Dark Mode Buttons -->
+    <div class="flex space-x-4">
+      <button id="settings-button" class="px-4 py-2 bg-gray-500 text-white rounded">
+        <i class="fas fa-cog"></i>
+      </button>
+      <button id="dark-mode-toggle" class="px-4 py-2 bg-gray-500 text-white rounded">
+        <i class="fas fa-moon"></i>
+      </button>
+    </div>
+  </div>
+
+  <div class="text-center main-content" id="app">
+    <!-- Mode Buttons -->
+    <div class="flex justify-center space-x-4 mb-4">
+      <button id="pomodoro-button" class="mode-button px-4 py-2 text-red-500 hover:text-red-700">
+        <i class="fas fa-clock mr-1"></i> Pomodoro
+      </button>
+      <button id="short-break-button" class="mode-button px-4 py-2 text-green-500 hover:text-green-700">
+        <i class="fas fa-coffee mr-1"></i> Short Break
+      </button>
+      <button id="long-break-button" class="mode-button px-4 py-2 text-blue-500 hover:text-blue-700">
+        <i class="fas fa-umbrella-beach mr-1"></i> Long Break
+      </button>
+    </div>
+
+    <!-- Circular Timer Display -->
+    <div class="progress-ring mb-4 mx-auto">
+      <svg width="200" height="200">
+        <circle id="progress-ring-circle" stroke="tomato" stroke-width="10" fill="transparent" r="90" cx="100" cy="100">
+        </circle>
+      </svg>
+      <div id="timer-display"
+        class="text-6xl font-bold absolute top-0 left-0 w-full h-full flex items-center justify-center">
+        25:00
+      </div>
+    </div>
+
+    <!-- Start and Skip Buttons -->
+    <div class="flex justify-center items-center space-x-4 mb-4">
+      <button id="start-pause-button" class="px-4 py-2 bg-gray-800 text-white rounded">
+        <i class="fas fa-play mr-1"></i> Start
+      </button>
+      <button id="skip-button" class="px-4 py-2 bg-gray-800 text-white rounded">
+        <i class="fas fa-forward"></i>
+      </button>
+    </div>
+
+    <!-- Visual Indicator for Completed Pomodoros -->
+    <div id="session-indicator"></div>
+
+    <!-- Notification -->
+    <div id="notification"></div>
+
+    <!-- Task Input and History Log -->
+    <div class="mb-4">
+      <!-- Task Input -->
+      <input id="task-input" type="text" placeholder="What are you working on?"
+        class="mb-4 px-4 py-2 border rounded w-80">
+      <!-- Use a table to show the history -->
+      <table id="history-log" class="text-left mx-auto w-96 h-40 overflow-y-scroll border rounded p-2 bg-white">
+        <thead>
+          <tr>
+            <th class="px-2 py-1 border-b">Type</th>
+            <th class="px-2 py-1 border-b">Task</th>
+            <th class="px-2 py-1 border-b">Start</th>
+            <th class="px-2 py-1 border-b">End</th>
+            <th class="px-2 py-1 border-b">Duration</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- Entries will be appended here -->
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <!-- Settings Modal -->
+  <div id="settings-modal" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 hidden">
+    <div class="bg-white rounded-lg p-6 w-80">
+      <h2 class="text-xl font-bold mb-4">Settings</h2>
+      <div class="mb-4">
+        <label class="block text-left mb-2">Pomodoro Time (minutes):</label>
+        <input id="pomodoro-time-input" type="number" min="1" class="w-full border rounded px-2 py-1" value="25">
+      </div>
+      <div class="mb-4">
+        <label class="block text-left mb-2">Short Break Time (minutes):</label>
+        <input id="short-break-time-input" type="number" min="1" class="w-full border rounded px-2 py-1" value="5">
+      </div>
+      <div class="mb-4">
+        <label class="block text-left mb-2">Long Break Time (minutes):</label>
+        <input id="long-break-time-input" type="number" min="1" class="w-full border rounded px-2 py-1" value="15">
+      </div>
+      <div class="mb-4 flex items-center">
+        <input id="continuous-mode-checkbox" type="checkbox" class="mr-2">
+        <label for="continuous-mode-checkbox">Enable Continuous Pomodoro Mode</label>
+      </div>
+      <div class="mb-4">
+        <label class="block text-left mb-2">Short Break Multiplier:</label>
+        <input id="break-multiplier-input" type="number" step="0.1" min="0" class="w-full border rounded px-2 py-1"
+          value="0.2">
+      </div>
+      <div class="mb-4">
+        <label class="block text-left mb-2">Long Break Multiplier:</label>
+        <input id="long-break-multiplier-input" type="number" step="0.1" min="0" class="w-full border rounded px-2 py-1"
+          value="0.2">
+      </div>
+      <div class="mb-4">
+        <label class="block text-left mb-2">Sessions Before Long Break:</label>
+        <input id="sessions-before-long-break-input" type="number" min="1" class="w-full border rounded px-2 py-1"
+          value="4">
+      </div>
+      <!-- Webhook Settings -->
+      <div class="mb-4 flex items-center">
+        <input id="enable-webhook-checkbox" type="checkbox" class="mr-2">
+        <label for="enable-webhook-checkbox">Enable Webhooks</label>
+      </div>
+      <div class="mb-4">
+        <label class="block text-left mb-2">Webhook URL:</label>
+        <input id="webhook-url-input" type="url" class="w-full border rounded px-2 py-1"
+          placeholder="https://example.com/webhook">
+      </div>
+      <div class="flex justify-end space-x-2">
+        <button id="close-settings-button" class="px-4 py-2 bg-gray-500 text-white rounded">Close</button>
+        <button id="save-settings-button" class="px-4 py-2 bg-blue-500 text-white rounded">Save</button>
+      </div>
+    </div>
+  </div>
+  <script>
+    (function () {
+      'use strict';
+
+      // Request notification permission
+      if ('Notification' in window) {
+        Notification.requestPermission();
+      }
+
+      let timer;
+      let isRunning = false;
+      let timeRemaining = 25 * 60;
+      let currentMode = 'pomodoro';
+      let continuousMode = false;
+      let breakMultiplier = 0.2;
+      let longBreakMultiplier = 0.2;
+      let focusTime = 0;
+      let completedSessions = 0;
+      let sessionsBeforeLongBreak = 4;
+      let historyLog = [];
+      let enableWebhook = false;
+      let webhookURL = '';
+
+      const defaultTimes = {
+        pomodoro: 25 * 60,
+        shortBreak: 5 * 60,
+        longBreak: 15 * 60
+      };
+
+      const elements = {
+        timerDisplay: document.getElementById('timer-display'),
+        startPauseButton: document.getElementById('start-pause-button'),
+        skipButton: document.getElementById('skip-button'),
+        pomodoroButton: document.getElementById('pomodoro-button'),
+        shortBreakButton: document.getElementById('short-break-button'),
+        longBreakButton: document.getElementById('long-break-button'),
+        settingsButton: document.getElementById('settings-button'),
+        settingsModal: document.getElementById('settings-modal'),
+        closeSettingsButton: document.getElementById('close-settings-button'),
+        saveSettingsButton: document.getElementById('save-settings-button'),
+        taskInput: document.getElementById('task-input'),
+        historyList: document.getElementById('history-log'),
+        darkModeToggle: document.getElementById('dark-mode-toggle'),
+        notification: document.getElementById('notification'),
+        progressRingCircle: document.getElementById('progress-ring-circle'),
+        sessionIndicator: document.getElementById('session-indicator'),
+        pomodoroTimeInput: document.getElementById('pomodoro-time-input'),
+        shortBreakTimeInput: document.getElementById('short-break-time-input'),
+        longBreakTimeInput: document.getElementById('long-break-time-input'),
+        continuousModeCheckbox: document.getElementById('continuous-mode-checkbox'),
+        breakMultiplierInput: document.getElementById('break-multiplier-input'),
+        longBreakMultiplierInput: document.getElementById('long-break-multiplier-input'),
+        sessionsBeforeLongBreakInput: document.getElementById('sessions-before-long-break-input'),
+        enableWebhookCheckbox: document.getElementById('enable-webhook-checkbox'),
+        webhookURLInput: document.getElementById('webhook-url-input')
+      };
+
+      const alarmSound = new Audio('alarm.mp3'); // Alarm sound when time is up
+
+      function loadSettings() {
+        const settings = localStorage.getItem('settings');
+        if (settings) {
+          const {
+            defaultTimes: dt,
+            continuousMode: cm,
+            breakMultiplier: bm,
+            longBreakMultiplier: lbm,
+            sessionsBeforeLongBreak: sblb,
+            enableWebhook: ew,
+            webhookURL: wu,
+            darkMode: dm
+          } = JSON.parse(settings);
+          Object.assign(defaultTimes, dt);
+          continuousMode = cm;
+          breakMultiplier = bm;
+          longBreakMultiplier = lbm;
+          sessionsBeforeLongBreak = sblb;
+          enableWebhook = ew;
+          webhookURL = wu;
+          if (dm) {
+            document.body.classList.add('dark-mode');
+          }
+        }
+      }
+
+      function saveSettings() {
+        const settings = {
+          defaultTimes,
+          continuousMode,
+          breakMultiplier,
+          longBreakMultiplier,
+          sessionsBeforeLongBreak,
+          enableWebhook,
+          webhookURL,
+          darkMode: document.body.classList.contains('dark-mode')
+        };
+        localStorage.setItem('settings', JSON.stringify(settings));
+      }
+
+      function loadStatus() {
+        const status = localStorage.getItem('timerStatus');
+        if (status) {
+          const {
+            timeRemaining: tr,
+            currentMode: cm,
+            isRunning: ir,
+            focusTime: ft,
+            completedSessions: cs
+          } = JSON.parse(status);
+          timeRemaining = tr;
+          currentMode = cm;
+          isRunning = ir;
+          focusTime = ft;
+          completedSessions = cs;
+        } else {
+          timeRemaining = defaultTimes[currentMode];
+        }
+      }
+
+      function saveStatus() {
+        const status = {
+          timeRemaining,
+          currentMode,
+          isRunning,
+          focusTime,
+          completedSessions
+        };
+        localStorage.setItem('timerStatus', JSON.stringify(status));
+      }
+
+      function loadHistory() {
+        const history = localStorage.getItem('historyLog');
+        if (history) {
+          historyLog = JSON.parse(history);
+          renderHistory();
+        }
+      }
+
+      function saveHistory() {
+        localStorage.setItem('historyLog', JSON.stringify(historyLog));
+      }
+
+      function initialize() {
+        loadSettings();
+        loadStatus();
+        loadHistory();
+        initializeSettingsModal();
+        updateModeButtons();
+        updateSessionIndicator();
+        updateTimerDisplay();
+        if (isRunning) {
+          startTimer();
+        }
+        // Event listeners
+        elements.startPauseButton.addEventListener('click', onStartPause);
+        elements.skipButton.addEventListener('click', skipTimer);
+        elements.pomodoroButton.addEventListener('click', () => switchMode('pomodoro'));
+        elements.shortBreakButton.addEventListener('click', () => switchMode('shortBreak'));
+        elements.longBreakButton.addEventListener('click', () => switchMode('longBreak'));
+        elements.settingsButton.addEventListener('click', openSettingsModal);
+        elements.closeSettingsButton.addEventListener('click', closeSettingsModal);
+        elements.saveSettingsButton.addEventListener('click', saveSettingsModal);
+        elements.darkModeToggle.addEventListener('click', toggleDarkMode);
+      }
+
+      function initializeSettingsModal() {
+        elements.pomodoroTimeInput.value = defaultTimes.pomodoro / 60;
+        elements.shortBreakTimeInput.value = defaultTimes.shortBreak / 60;
+        elements.longBreakTimeInput.value = defaultTimes.longBreak / 60;
+        elements.continuousModeCheckbox.checked = continuousMode;
+        elements.breakMultiplierInput.value = breakMultiplier;
+        elements.longBreakMultiplierInput.value = longBreakMultiplier;
+        elements.sessionsBeforeLongBreakInput.value = sessionsBeforeLongBreak;
+        elements.enableWebhookCheckbox.checked = enableWebhook;
+        elements.webhookURLInput.value = webhookURL;
+      }
+
+      function updateTimerDisplay() {
+        const minutes = String(Math.floor(timeRemaining / 60)).padStart(2, '0');
+        const seconds = String(timeRemaining % 60).padStart(2, '0');
+        elements.timerDisplay.textContent = `${minutes}:${seconds}`;
+        updateProgressRing();
+      }
+
+      function updateProgressRing() {
+        const radius = elements.progressRingCircle.r.baseVal.value;
+        const circumference = 2 * Math.PI * radius;
+        elements.progressRingCircle.style.strokeDasharray = `${circumference} ${circumference}`;
+        let percent;
+        if (continuousMode && currentMode === 'pomodoro') {
+          percent = (focusTime % defaultTimes.pomodoro) / defaultTimes.pomodoro;
+        } else {
+          percent = timeRemaining / defaultTimes[currentMode];
+        }
+        const offset = circumference - percent * circumference;
+        elements.progressRingCircle.style.strokeDashoffset = offset;
+      }
+
+      function updateModeButtons() {
+        elements.pomodoroButton.classList.remove('active');
+        elements.shortBreakButton.classList.remove('active');
+        elements.longBreakButton.classList.remove('active');
+
+        if (currentMode === 'pomodoro') {
+          elements.pomodoroButton.classList.add('active');
+        } else if (currentMode === 'shortBreak') {
+          elements.shortBreakButton.classList.add('active');
+        } else if (currentMode === 'longBreak') {
+          elements.longBreakButton.classList.add('active');
+        }
+      }
+
+      function updateSessionIndicator() {
+        elements.sessionIndicator.innerHTML = '';
+        for (let i = 0; i < sessionsBeforeLongBreak; i++) {
+          const icon = document.createElement('i');
+          icon.classList.add('fas', 'fa-apple-alt', 'pomo-icon');
+          if (i < completedSessions % sessionsBeforeLongBreak) {
+            icon.classList.add('completed');
+          }
+          elements.sessionIndicator.appendChild(icon);
+        }
+      }
+
+      function renderHistory() {
+        const tbody = elements.historyList.querySelector('tbody');
+        tbody.innerHTML = '';
+        historyLog.forEach(session => {
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td class="px-2 py-1 border-b">${session.type}</td>
+            <td class="px-2 py-1 border-b">${session.task || 'No Task'}</td>
+            <td class="px-2 py-1 border-b">${session.startTime}</td>
+            <td class="px-2 py-1 border-b">${session.endTime}</td>
+            <td class="px-2 py-1 border-b">${session.duration} min</td>
+          `;
+          tbody.appendChild(row);
+        });
+      }
+
+      function onStartPause() {
+        if (!isRunning) {
+          startTimer();
+        } else {
+          if (continuousMode && currentMode === 'pomodoro') {
+            pauseContinuousMode();
+          } else {
+            pauseTimer();
+          }
+        }
+      }
+
+      function startTimer() {
+        isRunning = true;
+        elements.startPauseButton.innerHTML = '<i class="fas fa-pause mr-1"></i> Pause';
+        const startTime = new Date();
+        sendWebhook('started');
+        if (continuousMode && currentMode === 'pomodoro') {
+          focusTime = 0;
+          timer = setInterval(() => {
+            timeRemaining++;
+            focusTime++;
+            updateTimerDisplay();
+          }, 1000);
+        } else {
+          timer = setInterval(timerTick, 1000);
+        }
+        saveStatus();
+      }
+
+      function timerTick() {
+        timeRemaining--;
+        updateTimerDisplay();
+        if (timeRemaining <= 0) {
+          handleTimerCompletion();
+        }
+      }
+
+      function handleTimerCompletion() {
+        alarmSound.play();
+        clearInterval(timer);
+        isRunning = false;
+        elements.startPauseButton.innerHTML = '<i class="fas fa-play mr-1"></i> Start';
+        sendWebhook('completed');
+        showBrowserNotification(`${capitalize(currentMode)} completed!`);
+        const endTime = new Date();
+        const duration = Math.round(defaultTimes[currentMode] / 60);
+        addToHistoryLog({
+          type: capitalize(currentMode),
+          task: elements.taskInput.value,
+          startTime: endTime.toLocaleTimeString(),
+          endTime: endTime.toLocaleTimeString(),
+          duration: duration
+        });
+        if (currentMode === 'pomodoro') {
+          completedSessions++;
+          updateSessionIndicator();
+          if (completedSessions % sessionsBeforeLongBreak === 0) {
+            currentMode = 'longBreak';
+            timeRemaining = defaultTimes.longBreak;
+            showNotification('Time for a Long Break!');
+            showBrowserNotification('Time for a Long Break!');
+          } else {
+            currentMode = 'shortBreak';
+            timeRemaining = defaultTimes.shortBreak;
+            showNotification('Time for a Short Break!');
+            showBrowserNotification('Time for a Short Break!');
+          }
+        } else {
+          currentMode = 'pomodoro';
+          timeRemaining = defaultTimes.pomodoro;
+          showNotification('Back to Work!');
+          showBrowserNotification('Back to Work!');
+        }
+        updateModeButtons();
+        updateTimerDisplay();
+        saveStatus();
+      }
+
+      function pauseTimer() {
+        isRunning = false;
+        elements.startPauseButton.innerHTML = '<i class="fas fa-play mr-1"></i> Start';
+        clearInterval(timer);
+        sendWebhook('paused');
+        saveStatus();
+      }
+
+      function pauseContinuousMode() {
+        pauseTimer();
+        defaultTimes.shortBreak = Math.round(focusTime * breakMultiplier);
+        defaultTimes.longBreak = Math.round(focusTime * longBreakMultiplier);
+        currentMode = 'shortBreak';
+        timeRemaining = defaultTimes.shortBreak;
+        updateModeButtons();
+        updateTimerDisplay();
+        showNotification(`Short Break for ${Math.floor(defaultTimes.shortBreak / 60)} minutes`);
+        showBrowserNotification(`Short Break for ${Math.floor(defaultTimes.shortBreak / 60)} minutes`);
+        addToHistoryLog({
+          type: 'Pomodoro',
+          task: elements.taskInput.value,
+          startTime: new Date(new Date() - focusTime * 1000).toLocaleTimeString(),
+          endTime: new Date().toLocaleTimeString(),
+          duration: Math.round(focusTime / 60)
+        });
+        completedSessions++;
+        updateSessionIndicator();
+      }
+
+      function resetTimer() {
+        pauseTimer();
+        if (continuousMode && currentMode === 'pomodoro') {
+          timeRemaining = 0;
+        } else {
+          timeRemaining = defaultTimes[currentMode];
+        }
+        updateTimerDisplay();
+        saveStatus();
+      }
+
+      function skipTimer() {
+        clearInterval(timer);
+        isRunning = false;
+        elements.startPauseButton.innerHTML = '<i class="fas fa-play mr-1"></i> Start';
+        sendWebhook('skipped');
+        showBrowserNotification('Timer skipped!');
+        if (currentMode === 'pomodoro') {
+          const endTime = new Date();
+          const duration = Math.round((defaultTimes.pomodoro - timeRemaining) / 60);
+          addToHistoryLog({
+            type: 'Pomodoro (Skipped)',
+            task: elements.taskInput.value,
+            startTime: endTime.toLocaleTimeString(),
+            endTime: endTime.toLocaleTimeString(),
+            duration: duration
+          });
+          completedSessions++;
+          updateSessionIndicator();
+          if (completedSessions % sessionsBeforeLongBreak === 0) {
+            currentMode = 'longBreak';
+            timeRemaining = defaultTimes.longBreak;
+            showNotification('Time for a Long Break!');
+            showBrowserNotification('Time for a Long Break!');
+          } else {
+            currentMode = 'shortBreak';
+            timeRemaining = defaultTimes.shortBreak;
+            showNotification('Time for a Short Break!');
+            showBrowserNotification('Time for a Short Break!');
+          }
+        } else {
+          currentMode = 'pomodoro';
+          timeRemaining = defaultTimes.pomodoro;
+          showNotification('Back to Work!');
+          showBrowserNotification('Back to Work!');
+        }
+        updateModeButtons();
+        updateTimerDisplay();
+        saveStatus();
+      }
+
+      function switchMode(mode) {
+        currentMode = mode;
+        resetTimer();
+        updateModeButtons();
+      }
+
+      function openSettingsModal() {
+        elements.settingsModal.classList.remove('hidden');
+        initializeSettingsModal();
+      }
+
+      function closeSettingsModal() {
+        elements.settingsModal.classList.add('hidden');
+      }
+
+      function saveSettingsModal() {
+        defaultTimes.pomodoro = parseInt(elements.pomodoroTimeInput.value) * 60;
+        defaultTimes.shortBreak = parseInt(elements.shortBreakTimeInput.value) * 60;
+        defaultTimes.longBreak = parseInt(elements.longBreakTimeInput.value) * 60;
+        continuousMode = elements.continuousModeCheckbox.checked;
+        breakMultiplier = parseFloat(elements.breakMultiplierInput.value);
+        longBreakMultiplier = parseFloat(elements.longBreakMultiplierInput.value);
+        sessionsBeforeLongBreak = parseInt(elements.sessionsBeforeLongBreakInput.value);
+        enableWebhook = elements.enableWebhookCheckbox.checked;
+        webhookURL = elements.webhookURLInput.value.trim();
+        saveSettings();
+        resetTimer();
+        updateModeButtons();
+        closeSettingsModal();
+      }
+
+      function toggleDarkMode() {
+        document.body.classList.toggle('dark-mode');
+        saveSettings();
+      }
+
+      function showNotification(message) {
+        elements.notification.textContent = message;
+        elements.notification.style.display = 'block';
+        setTimeout(() => {
+          elements.notification.style.display = 'none';
+        }, 3000);
+      }
+
+      function showBrowserNotification(message) {
+        if ('Notification' in window && Notification.permission === 'granted') {
+          new Notification(message);
+        }
+      }
+
+      function sendWebhook(status) {
+        if (enableWebhook && webhookURL) {
+          const payload = {
+            status: status,
+            taskName: elements.taskInput.value,
+            time: new Date().toISOString()
+          };
+          fetch(webhookURL, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+          }).catch(error => console.error('Webhook error:', error));
+        }
+      }
+
+      function addToHistoryLog(session) {
+        historyLog.push(session);
+        const tbody = elements.historyList.querySelector('tbody');
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td class="px-2 py-1 border-b">${session.type}</td>
+          <td class="px-2 py-1 border-b">${session.task || 'No Task'}</td>
+          <td class="px-2 py-1 border-b">${session.startTime}</td>
+          <td class="px-2 py-1 border-b">${session.endTime}</td>
+          <td class="px-2 py-1 border-b">${session.duration} min</td>
+        `;
+        tbody.appendChild(row);
+        saveHistory();
+      }
+
+      function capitalize(string) {
+        return string.charAt(0).toUpperCase() + string.slice(1);
+      }
+
+      initialize();
+    })();
+  </script>
+</body>
+
+</html>

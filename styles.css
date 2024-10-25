@@ -1,0 +1,178 @@
+/* Styles for the circular progress bar */
+.progress-ring {
+  position: relative;
+  width: 200px;
+  height: 200px;
+  margin: 0 auto;
+}
+
+.progress-ring svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.progress-ring circle {
+  transform: rotate(-90deg);
+  transform-origin: 50% 50%;
+  transition: stroke-dashoffset 1s linear;
+}
+
+/* Dark mode styles */
+body.dark-mode {
+  background-color: #1a202c;
+  color: #a0aec0;
+}
+
+body.dark-mode input,
+body.dark-mode textarea,
+body.dark-mode select {
+  background-color: #2d3748;
+  color: #a0aec0;
+  border-color: #4a5568;
+}
+
+body.dark-mode table {
+  background-color: #2d3748;
+  color: #a0aec0;
+}
+
+body.dark-mode th,
+body.dark-mode td {
+  border-color: #4a5568;
+}
+
+body.dark-mode .bg-white {
+  background-color: #2d3748 !important;
+}
+
+body.dark-mode .bg-gray-100 {
+  background-color: #1a202c !important;
+}
+
+body.dark-mode .bg-gray-800 {
+  background-color: #4a5568 !important;
+}
+
+body.dark-mode .bg-gray-500 {
+  background-color: #4a5568 !important;
+}
+
+body.dark-mode .text-white {
+  color: #a0aec0 !important;
+}
+
+body.dark-mode #notification {
+  background-color: #4a5568;
+  color: #a0aec0;
+}
+
+body.dark-mode button:hover {
+  background-color: #4a5568;
+}
+
+body.dark-mode #progress-ring-circle {
+  stroke: tomato;
+}
+
+/* Notification styles */
+#notification {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background-color: #3182ce;
+  color: white;
+  padding: 10px;
+  border-radius: 5px;
+  display: none;
+  z-index: 1000;
+}
+
+/* Completed Focus Time Sessions Indicator */
+#session-indicator {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 1rem;
+}
+
+.pomo-icon {
+  color: gray;
+  margin: 0 5px;
+  font-size: 1.5rem;
+}
+
+.pomo-icon.completed {
+  color: tomato;
+}
+
+/* Active mode button */
+.mode-button.active {
+  border-bottom: 2px solid currentColor;
+}
+
+/* Settings modal content styling */
+#settings-modal .modal-content {
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+/* Responsive adjustments */
+@media (max-width: 640px) {
+  .progress-ring {
+    width: 150px;
+    height: 150px;
+  }
+
+  #timer-display {
+    font-size: 3rem;
+  }
+}
+
+/* Daily Goal Progress Bar */
+#daily-progress-bar {
+  width: 100%;
+  max-width: 300px;
+  height: 20px;
+  background-color: #e6e6e6;
+  border-radius: 10px;
+  overflow: hidden;
+  margin: 0 auto 10px auto;
+}
+
+#daily-progress-bar-fill {
+  height: 100%;
+  background-color: tomato;
+  transition: width 0.5s;
+}
+
+/* Streak Indicator */
+#streak-indicator {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+#streak-indicator i {
+  color: gold;
+  margin-right: 5px;
+}
+
+/* Dark mode adjustments */
+body.dark-mode #daily-progress-bar {
+  background-color: #4a5568;
+}
+
+body.dark-mode #daily-progress-bar-fill {
+  background-color: #a0aec0;
+}
+
+/* Additional styles for the delete button in the history log */
+.delete-button {
+  cursor: pointer;
+  color: red;
+}
+
+.delete-button:hover {
+  color: darkred;
+}

@@ -22,6 +22,11 @@ This application was developed with the assistance of AI, specifically using GPT
 - **Language Support**: English and Portuguese translations are included.
 - **Webhook Integration**: Configure webhooks to send data about session completion and status updates.
 
+## Hosted Version
+
+All the code works offline, no data is sent to external services, except for the webhook that you can setup to an custom URL.
+- **URL**: https://leobaldoneto.github.io/focus-time/
+
 ## Installation
 
 To run this application locally:

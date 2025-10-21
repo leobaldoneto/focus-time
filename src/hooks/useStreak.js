@@ -1,6 +1,5 @@
 import { useAtom, useAtomValue } from 'jotai';
 import { streakCountAtom, lastGoalMetDateAtom } from '../atoms/timerAtoms';
-import { useNotification } from './useNotification';
 import { useCallback, useEffect } from 'react';
 
 const getDaysBetween = (date1, date2) => {
@@ -26,7 +25,6 @@ const isWeekendDaysBetween = (date1, date2) => {
 export const useStreak = () => {
   const [streakCount, setStreakCount] = useAtom(streakCountAtom);
   const [lastGoalMetDate, setLastGoalMetDate] = useAtom(lastGoalMetDateAtom);
-  const { showNotification } = useNotification();
 
   // Check streak validity on mount
   useEffect(() => {
@@ -50,20 +48,17 @@ export const useStreak = () => {
       if (diffDays === 1 || (diffDays <= 3 && isWeekendDaysBetween(lastDate, today))) {
         const newStreak = streakCount + 1;
         setStreakCount(newStreak);
-        showNotification(`Congratulations! You have a ${newStreak}-day streak!`);
       } else if (diffDays === 0) {
         return;
       } else {
         setStreakCount(1);
-        showNotification('Congratulations! You have a 1-day streak!');
       }
     } else {
       setStreakCount(1);
-      showNotification('Congratulations! You have a 1-day streak!');
     }
 
     setLastGoalMetDate(today.toISOString());
-  }, [lastGoalMetDate, streakCount, setStreakCount, setLastGoalMetDate, showNotification]);
+  }, [lastGoalMetDate, streakCount, setStreakCount, setLastGoalMetDate]);
 
   return { streakCount, updateStreak };
 };

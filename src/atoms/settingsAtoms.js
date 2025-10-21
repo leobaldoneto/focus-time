@@ -6,4 +6,5 @@ export const settingsAtom = atomWithStorage('settings', {
   enableWebhooks: false,
   webhookURL: '',
   enableAlarmSound: true,
+  enableSounds: true,
 });

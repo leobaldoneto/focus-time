@@ -2,7 +2,6 @@ import { useAtom, useSetAtom } from 'jotai';
 import { showSettingsAtom, showConfirmAtom, confirmMessageAtom, confirmCallbackAtom } from '../atoms/timerAtoms';
 import { settingsAtom } from '../atoms/settingsAtoms';
 import { historyLogAtom } from '../atoms/historyAtoms';
-import { useNotification } from '../hooks/useNotification';
 
 export const Settings = () => {
   const [showSettings, setShowSettings] = useAtom(showSettingsAtom);
@@ -11,12 +10,10 @@ export const Settings = () => {
   const setShowConfirm = useSetAtom(showConfirmAtom);
   const setConfirmMessage = useSetAtom(confirmMessageAtom);
   const setConfirmCallback = useSetAtom(confirmCallbackAtom);
-  const { showNotification } = useNotification();
 
   const handleSubmit = (e) => {
     e.preventDefault();
     setShowSettings(false);
-    showNotification('Settings saved.');
   };
 
   const confirmClearHistory = () => {
@@ -86,6 +83,14 @@ export const Settings = () => {
               onChange={(e) => setSettings({ ...settings, enableAlarmSound: e.target.checked })}
             />
             {' '}Enable Alarm Sound
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={settings.enableSounds}
+              onChange={(e) => setSettings({ ...settings, enableSounds: e.target.checked })}
+            />
+            {' '}Enable Action Sounds
           </label>
           <button onClick={confirmClearHistory} type="button" className="contrast">
             Clear History

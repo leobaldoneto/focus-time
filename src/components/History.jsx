@@ -9,6 +9,8 @@ export const History = () => {
     setHistoryLog((prev) => prev.filter((_, i) => i !== index));
   };
 
+  if (historyLog.length === 0) return null;
+
   return (
     <div className="history-wrapper">
       <table>
@@ -18,6 +20,7 @@ export const History = () => {
             <th>Task</th>
             <th>Start</th>
             <th>Duration</th>
+            <th>Interruption</th>
             <th>Action</th>
           </tr>
         </thead>
@@ -28,6 +31,7 @@ export const History = () => {
               <td>{item.task || '-'}</td>
               <td>{item.startTime}</td>
               <td>{item.duration}</td>
+              <td>{item.interruptionReason || '-'}</td>
               <td>
                 <button onClick={() => deleteHistoryItem(idx)} className="icon-btn contrast">
                   <Trash2 size={16} />

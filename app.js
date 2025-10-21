@@ -1,611 +1,438 @@
-// DOM Elements
-const timerDisplay = document.getElementById('timer-display');
-const playButton = document.getElementById('play-button');
-const pauseButton = document.getElementById('pause-button');
-const stopButton = document.getElementById('stop-button');
-const toggleTimerVisibilityButton = document.getElementById('toggle-timer-visibility');
-const breakTimeCreditDisplay = document.getElementById('break-time-credit');
-const dailyProgressBarFill = document.getElementById('daily-progress-bar-fill');
-const dailyGoalText = document.getElementById('daily-goal-text');
-const dailyGoalMinutesSpan = document.getElementById('daily-goal-minutes');
-const taskInput = document.getElementById('task-input');
-const historyLogBody = document.querySelector('#history-log tbody');
-const statusText = document.getElementById('status-text');
-const timerRing = document.getElementById('timer-ring');
+function focusApp() {
+  return {
+    // State
+    workTimer: null,
+    breakTimer: null,
+    timerStartTime: null,
+    pausedTime: 0,
+    totalFocusedTime: 0,
+    breakTimeCredit: 0,
+    streakCount: 0,
 
-// Settings Modal Elements
-const settingsButton = document.getElementById('settings-button');
-const settingsModal = document.getElementById('settings-modal');
-const closeSettingsButton = document.getElementById('close-settings-button');
-const saveSettingsButton = document.getElementById('save-settings-button');
-const breakMultiplierInput = document.getElementById('break-multiplier-input');
-const dailyGoalInput = document.getElementById('daily-goal-input');
-const enableWebhookCheckbox = document.getElementById('enable-webhook-checkbox');
-const webhookUrlInput = document.getElementById('webhook-url-input');
-const clearHistoryButton = document.getElementById('clear-history-button');
-const resetAppButton = document.getElementById('reset-app-button');
-const enableAlarmCheckbox = document.getElementById('enable-alarm-checkbox');
+    // UI State
+    isTimerVisible: true,
+    isWorking: false,
+    isPaused: false,
+    isRunning: false,
+    displayTime: '00:00',
+    statusText: 'Focus',
 
-// Other Elements
-const darkModeToggle = document.getElementById('dark-mode-toggle');
-const notification = document.getElementById('notification');
-const confirmModal = document.getElementById('confirm-modal');
-const confirmModalMessage = document.getElementById('confirm-modal-message');
-const confirmModalYes = document.getElementById('confirm-modal-yes');
-const confirmModalNo = document.getElementById('confirm-modal-no');
+    // Modals
+    showSettings: false,
+    showConfirm: false,
+    confirmMessage: '',
+    confirmCallback: null,
 
-// Variables
-let workTimer = null;
-let breakTimer = null;
-let timerStartTime = null;
-let pausedTime = 0;
-let totalFocusedTime = 0; // in seconds
-let breakTimeCredit = 0; // in seconds
-let isTimerVisible = true;
-let isWorking = false;
-let isPaused = false;
-let settings = {
-  breakMultiplier: 0.2,
-  dailyGoal: 120, // in minutes
-  enableWebhooks: false,
-  webhookURL: '',
-  enableAlarmSound: true,
-};
+    // Notifications
+    notification: false,
+    notificationMessage: '',
 
-const alarmSound = new Audio('alarm.mp3');
+    // Form data
+    taskInput: '',
+    historyLog: [],
 
-// Load settings from localStorage
-function loadSettings() {
-  const savedSettings = JSON.parse(localStorage.getItem('settings'));
-  if (savedSettings) {
-    settings = savedSettings;
-    breakMultiplierInput.value = settings.breakMultiplier;
-    dailyGoalInput.value = settings.dailyGoal;
-    dailyGoalMinutesSpan.textContent = settings.dailyGoal;
-    enableWebhookCheckbox.checked = settings.enableWebhooks;
-    webhookUrlInput.value = settings.webhookURL;
-    enableAlarmCheckbox.checked = settings.enableAlarmSound;
-  }
+    settings: {
+      breakMultiplier: 0.2,
+      dailyGoal: 120,
+      enableWebhooks: false,
+      webhookURL: '',
+      enableAlarmSound: true,
+    },
 
-  // Load streak
-  const lastGoalMetDate = localStorage.getItem('lastGoalMetDate');
-  let streakCount = parseInt(localStorage.getItem('streakCount')) || 0;
+    alarmSound: null,
 
-  if (lastGoalMetDate) {
-    const lastDate = new Date(lastGoalMetDate);
-    const today = new Date();
-    const diffDays = getDaysBetween(lastDate, today);
-    if (diffDays === 0) {
-      // Do nothing
-    } else if (diffDays === 1 || (diffDays <= 3 && isWeekendDaysBetween(lastDate, today))) {
-      // Streak continues
-    } else {
-      // Streak broken
-      streakCount = 0;
-      localStorage.setItem('streakCount', streakCount);
-    }
-  } else {
-    streakCount = 0;
-  }
+    // Initialize app
+    init() {
+      this.alarmSound = new Audio('alarm.mp3');
+      this.loadSettings();
+      this.loadTimerState();
+      this.loadHistoryLog();
+      this.updateBreakTimeCreditDisplay();
+      this.updateDailyProgress();
 
-  document.getElementById('streak-count').textContent = streakCount;
-
-  // Load totalFocusedTime and breakTimeCredit
-  const savedTotalFocusedTime = localStorage.getItem('totalFocusedTime');
-  const savedBreakTimeCredit = localStorage.getItem('breakTimeCredit');
-  if (savedTotalFocusedTime) {
-    totalFocusedTime = parseInt(savedTotalFocusedTime);
-  }
-  if (savedBreakTimeCredit) {
-    breakTimeCredit = parseInt(savedBreakTimeCredit);
-  }
-
-  // Load task input
-  const savedTaskInput = localStorage.getItem('taskInput');
-  if (savedTaskInput) {
-    taskInput.value = savedTaskInput;
-  }
-}
-
-// Save settings to localStorage
-function saveSettings() {
-  settings.breakMultiplier = parseFloat(breakMultiplierInput.value);
-  settings.dailyGoal = parseInt(dailyGoalInput.value);
-  settings.enableWebhooks = enableWebhookCheckbox.checked;
-  settings.webhookURL = webhookUrlInput.value;
-  settings.enableAlarmSound = enableAlarmCheckbox.checked;
-  localStorage.setItem('settings', JSON.stringify(settings));
-  dailyGoalMinutesSpan.textContent = settings.dailyGoal;
-  showNotification('Settings saved.');
-}
-
-// Save timer state to localStorage
-function saveTimerState() {
-  const timerState = {
-    isWorking,
-    isPaused,
-    timerStartTime,
-    pausedTime,
-    breakTimeCredit,
-    totalFocusedTime,
-  };
-  localStorage.setItem('timerState', JSON.stringify(timerState));
-}
-
-// Load timer state from localStorage
-function loadTimerState() {
-  const savedTimerState = JSON.parse(localStorage.getItem('timerState'));
-  if (savedTimerState) {
-    isWorking = savedTimerState.isWorking;
-    isPaused = savedTimerState.isPaused;
-    timerStartTime = savedTimerState.timerStartTime;
-    pausedTime = savedTimerState.pausedTime;
-    breakTimeCredit = savedTimerState.breakTimeCredit;
-    totalFocusedTime = savedTimerState.totalFocusedTime;
-    updateBreakTimeCreditDisplay();
-    updateDailyProgress();
-    updateButtonVisibility();
-
-    if (timerStartTime && !isPaused) {
-      // Resume timer
-      if (isWorking) {
-        startBreakTimer();
-      } else {
-        startWorkTimer();
+      if ('Notification' in window && Notification.permission !== 'granted') {
+        Notification.requestPermission();
       }
-    } else if (timerStartTime && isPaused) {
-      // Update display
-      if (isWorking) {
-        statusText.textContent = 'Break (Paused)';
-        timerDisplay.textContent = formatTime(getRemainingBreakTime());
-      } else {
-        statusText.textContent = 'Focus (Paused)';
-        const elapsedSeconds = Math.floor((Date.now() - timerStartTime - pausedTime) / 1000);
-        timerDisplay.textContent = formatTime(elapsedSeconds);
+    },
+
+    // Settings Management
+    loadSettings() {
+      const saved = localStorage.getItem('settings');
+      if (saved) {
+        this.settings = JSON.parse(saved);
       }
-    } else {
-      statusText.textContent = isWorking ? 'Break' : 'Focus';
-      timerDisplay.textContent = isWorking ? formatTime(breakTimeCredit) : '00:00';
-    }
-  }
-}
 
-// Start Work Timer
-function startWorkTimer() {
-  workTimer = setInterval(updateWorkTimer, 1000);
-  sendWebhook('focus');
-  // Timer ring pulses during focus
-  timerRing.classList.add('animate-pulse');
-  timerRing.classList.add('border-blue-500');
-  timerRing.classList.remove('border-green-500');
-  statusText.textContent = 'Focus';
-  isPaused = false;
-  saveTimerState();
-}
+      // Load streak
+      const lastGoalMetDate = localStorage.getItem('lastGoalMetDate');
+      this.streakCount = parseInt(localStorage.getItem('streakCount')) || 0;
 
-// Start Break Timer
-function startBreakTimer() {
-  breakTimer = setInterval(updateBreakTimer, 1000);
-  sendWebhook('break');
-  // Adjust timer ring for break
-  timerRing.classList.remove('animate-pulse');
-  timerRing.classList.add('border-green-500');
-  timerRing.classList.remove('border-blue-500');
-  statusText.textContent = 'Break';
-  isPaused = false;
-  saveTimerState();
-}
+      if (lastGoalMetDate) {
+        const lastDate = new Date(lastGoalMetDate);
+        const today = new Date();
+        const diffDays = this.getDaysBetween(lastDate, today);
+        if (diffDays > 3 || (diffDays > 1 && !this.isWeekendDaysBetween(lastDate, today))) {
+          this.streakCount = 0;
+          localStorage.setItem('streakCount', this.streakCount);
+        }
+      }
 
-// Start Work or Break Timer
-function startTimer() {
-  if (workTimer || breakTimer) return;
-  if (!timerStartTime) {
-    timerStartTime = Date.now() - pausedTime;
-  } else {
-    timerStartTime = Date.now() - pausedTime;
-  }
-  if (isWorking) {
-    startBreakTimer();
-  } else {
-    startWorkTimer();
-  }
-  updateButtonVisibility();
-}
+      const savedTask = localStorage.getItem('taskInput');
+      if (savedTask) this.taskInput = savedTask;
+    },
 
-// Pause Timer
-function pauseTimer() {
-  if (workTimer) {
-    clearInterval(workTimer);
-    workTimer = null;
-    isPaused = true;
-    pausedTime = Date.now() - timerStartTime;
-    sendWebhook('paused');
-  } else if (breakTimer) {
-    clearInterval(breakTimer);
-    breakTimer = null;
-    isPaused = true;
-    pausedTime = Date.now() - timerStartTime;
-    sendWebhook('paused');
-  }
-  saveTimerState();
-  updateButtonVisibility();
-}
+    saveSettings() {
+      localStorage.setItem('settings', JSON.stringify(this.settings));
+      this.showSettings = false;
+      this.showNotification('Settings saved.');
+    },
 
-// Stop Timer
-function stopTimer() {
-  if (workTimer) {
-    clearInterval(workTimer);
-    workTimer = null;
-    const workDuration = Math.floor((Date.now() - timerStartTime) / 1000);
-    totalFocusedTime += workDuration;
-    const breakCredit = Math.floor(workDuration * settings.breakMultiplier);
-    breakTimeCredit += breakCredit;
-    updateBreakTimeCreditDisplay();
-    updateDailyProgress();
-    logHistory('Work', taskInput.value, timerStartTime, workDuration);
-    taskInput.value = '';
-    localStorage.removeItem('taskInput');
-    isWorking = true; // Next is break
-    sendWebhook('resting');
-  } else if (breakTimer) {
-    clearInterval(breakTimer);
-    breakTimer = null;
-    const breakDuration = Math.floor((Date.now() - timerStartTime) / 1000);
-    breakTimeCredit -= breakDuration;
-    if (breakTimeCredit < 0) breakTimeCredit = 0;
-    updateBreakTimeCreditDisplay();
-    updateDailyProgress();
-    logHistory('Break', 'Break Time', timerStartTime, breakDuration);
-    isWorking = false; // Next is focus
-    sendWebhook('working');
-  }
-  isPaused = false;
-  pausedTime = 0;
-  timerStartTime = null;
-  timerDisplay.textContent = isWorking ? formatTime(breakTimeCredit) : formatTime(0);
-  statusText.textContent = isWorking ? 'Break' : 'Focus';
-  timerRing.classList.remove('animate-pulse');
-  timerRing.classList.remove('border-blue-500');
-  timerRing.classList.remove('border-green-500');
-  timerRing.style.background = '';
-  saveTimerState();
-  updateButtonVisibility();
-}
+    // Timer State Management
+    loadTimerState() {
+      const saved = localStorage.getItem('timerState');
+      if (saved) {
+        const state = JSON.parse(saved);
+        this.isWorking = state.isWorking;
+        this.isPaused = state.isPaused;
+        this.timerStartTime = state.timerStartTime;
+        this.pausedTime = state.pausedTime;
+        this.breakTimeCredit = state.breakTimeCredit;
+        this.totalFocusedTime = state.totalFocusedTime;
 
-// Update Work Timer Display
-function updateWorkTimer() {
-  const elapsedSeconds = Math.floor((Date.now() - timerStartTime) / 1000);
-  timerDisplay.textContent = formatTime(elapsedSeconds);
-  saveTimerState();
-}
+        if (this.timerStartTime && !this.isPaused) {
+          if (this.isWorking) {
+            this.startTimerType(true);
+          } else {
+            this.startTimerType(false);
+          }
+        } else if (this.timerStartTime && this.isPaused) {
+          if (this.isWorking) {
+            this.statusText = 'Break (Paused)';
+            this.displayTime = this.formatTime(this.getRemainingBreakTime());
+          } else {
+            this.statusText = 'Focus (Paused)';
+            const elapsed = Math.floor((Date.now() - this.timerStartTime - this.pausedTime) / 1000);
+            this.displayTime = this.formatTime(elapsed);
+          }
+        }
+      }
+    },
 
-// Update Break Timer Display
-function updateBreakTimer() {
-  const totalBreakSeconds = breakTimeCredit;
-  const elapsedSeconds = Math.floor((Date.now() - timerStartTime) / 1000);
-  let remainingSeconds = totalBreakSeconds - elapsedSeconds;
-  if (remainingSeconds <= 0) {
-    if (settings.enableAlarmSound && alarmSound) { // Check if alarm sound is enabled
-      alarmSound.play();
-    }
-    showBrowserNotification('Break Over', 'Time to focus!');
-    // Set remainingSeconds to 0 to fully consume the ring
-    remainingSeconds = 0;
-    updateTimerRingProgress(remainingSeconds, totalBreakSeconds);
-    stopTimer();
-  } else {
-    timerDisplay.textContent = formatTime(remainingSeconds);
-    updateTimerRingProgress(remainingSeconds, totalBreakSeconds);
-    saveTimerState();
-  }
-}
+    saveTimerState() {
+      localStorage.setItem('timerState', JSON.stringify({
+        isWorking: this.isWorking,
+        isPaused: this.isPaused,
+        timerStartTime: this.timerStartTime,
+        pausedTime: this.pausedTime,
+        breakTimeCredit: this.breakTimeCredit,
+        totalFocusedTime: this.totalFocusedTime,
+      }));
+    },
 
-// Get Remaining Break Time
-function getRemainingBreakTime() {
-  const totalBreakSeconds = breakTimeCredit;
-  const elapsedSeconds = Math.floor((Date.now() - timerStartTime - pausedTime) / 1000);
-  const remainingSeconds = totalBreakSeconds - elapsedSeconds;
-  return remainingSeconds > 0 ? remainingSeconds : 0;
-}
+    // Timer Control
+    startTimer() {
+      if (this.isRunning) return;
+      this.timerStartTime = Date.now() - this.pausedTime;
+      this.startTimerType(this.isWorking);
+    },
 
-// Update Timer Ring Progress
-function updateTimerRingProgress(remainingSeconds, totalSeconds) {
-  const progressPercent = ((totalSeconds - remainingSeconds) / totalSeconds) * 100;
-  timerRing.style.background = `conic-gradient(
-    #10B981 ${(progressPercent * 3.6)}deg,
-    rgba(0, 0, 0, 0.1) ${(progressPercent * 3.6)}deg
-  )`;
-}
+    startTimerType(isBreak) {
+      if (isBreak) {
+        this.breakTimer = setInterval(() => this.updateBreakTimer(), 1000);
+        setTimeout(() => {
+          const ring = document.querySelector('[x-ref="timerRing"]');
+          if (ring) {
+            ring.classList.remove('animate-pulse', 'border-blue-500');
+            ring.classList.add('border-green-500');
+          }
+        }, 0);
+        this.statusText = 'Break';
+        this.sendWebhook('break');
+      } else {
+        this.workTimer = setInterval(() => this.updateWorkTimer(), 1000);
+        setTimeout(() => {
+          const ring = document.querySelector('[x-ref="timerRing"]');
+          if (ring) {
+            ring.classList.add('animate-pulse', 'border-blue-500');
+            ring.classList.remove('border-green-500');
+          }
+        }, 0);
+        this.statusText = 'Focus';
+        this.sendWebhook('focus');
+      }
+      this.isPaused = false;
+      this.isRunning = true;
+      this.saveTimerState();
+    },
 
-// Update Break Time Credit Display
-function updateBreakTimeCreditDisplay() {
-  breakTimeCreditDisplay.textContent = formatTime(breakTimeCredit);
-  localStorage.setItem('breakTimeCredit', breakTimeCredit);
-}
+    pauseTimer() {
+      if (!this.isRunning) return;
+      clearInterval(this.workTimer);
+      clearInterval(this.breakTimer);
+      this.workTimer = this.breakTimer = null;
+      this.isPaused = true;
+      this.isRunning = false;
+      this.pausedTime = Date.now() - this.timerStartTime;
+      this.sendWebhook('paused');
+      this.saveTimerState();
+    },
 
-// Format Time in HH:MM:SS
-function formatTime(seconds) {
-  const hrs = Math.floor(seconds / 3600);
-  const mins = Math.floor((seconds % 3600) / 60);
-  const secs = seconds % 60;
-  if (hrs > 0) {
-    return `${pad(hrs)}:${pad(mins)}:${pad(secs)}`;
-  } else {
-    return `${pad(mins)}:${pad(secs)}`;
-  }
-}
+    stopTimer() {
+      const duration = Math.floor((Date.now() - this.timerStartTime) / 1000);
 
-// Pad numbers with leading zeros
-function pad(num) {
-  return num.toString().padStart(2, '0');
-}
+      if (this.workTimer) {
+        clearInterval(this.workTimer);
+        this.workTimer = null;
+        this.totalFocusedTime += duration;
+        this.breakTimeCredit += Math.floor(duration * this.settings.breakMultiplier);
+        this.logHistory('Work', this.taskInput, this.timerStartTime, duration);
+        this.taskInput = '';
+        localStorage.removeItem('taskInput');
+        this.isWorking = true;
+        this.sendWebhook('resting');
+      } else if (this.breakTimer) {
+        clearInterval(this.breakTimer);
+        this.breakTimer = null;
+        this.breakTimeCredit = Math.max(0, this.breakTimeCredit - duration);
+        this.logHistory('Break', 'Break Time', this.timerStartTime, duration);
+        this.isWorking = false;
+        this.sendWebhook('working');
+      }
 
-// Update Daily Progress
-function updateDailyProgress() {
-  const goalInSeconds = settings.dailyGoal * 60;
-  const progressPercent = (totalFocusedTime / goalInSeconds) * 100;
-  dailyProgressBarFill.style.width = `${Math.min(progressPercent, 100)}%`;
-  const totalFocusedMinutes = Math.floor(totalFocusedTime / 60);
-  dailyGoalText.textContent = `${totalFocusedMinutes} of ${settings.dailyGoal} minutes focused`;
-  localStorage.setItem('totalFocusedTime', totalFocusedTime);
+      this.updateBreakTimeCreditDisplay();
+      this.updateDailyProgress();
+      this.isPaused = false;
+      this.isRunning = false;
+      this.pausedTime = 0;
+      this.timerStartTime = null;
+      this.displayTime = this.isWorking ? this.formatTime(this.breakTimeCredit) : '00:00';
+      this.statusText = this.isWorking ? 'Break' : 'Focus';
 
-  if (totalFocusedTime >= goalInSeconds) {
-    // User has met the daily goal
-    checkAndUpdateStreak();
-  }
-}
+      setTimeout(() => {
+        const ring = document.querySelector('[x-ref="timerRing"]');
+        if (ring) {
+          ring.classList.remove('animate-pulse', 'border-blue-500', 'border-green-500');
+          ring.style.background = '';
+        }
+      }, 0);
 
-// Check and Update Streak
-function checkAndUpdateStreak() {
-  const today = new Date();
-  const lastGoalMetDate = localStorage.getItem('lastGoalMetDate');
-  let streakCount = parseInt(localStorage.getItem('streakCount')) || 0;
+      this.saveTimerState();
+    },
 
-  if (lastGoalMetDate) {
-    const lastDate = new Date(lastGoalMetDate);
-    const diffDays = getDaysBetween(lastDate, today);
+    updateWorkTimer() {
+      const elapsed = Math.floor((Date.now() - this.timerStartTime) / 1000);
+      this.displayTime = this.formatTime(elapsed);
+      this.saveTimerState();
+    },
 
-    if (diffDays === 1 || (diffDays <= 3 && isWeekendDaysBetween(lastDate, today))) {
-      // Consecutive day (skipping weekends)
-      streakCount++;
-    } else if (diffDays === 0) {
-      // Already updated today
-      return;
-    } else {
-      // Not consecutive
-      streakCount = 1;
-    }
-  } else {
-    streakCount = 1;
-  }
+    updateBreakTimer() {
+      const totalSeconds = this.breakTimeCredit;
+      const elapsed = Math.floor((Date.now() - this.timerStartTime) / 1000);
+      const remaining = totalSeconds - elapsed;
 
-  localStorage.setItem('streakCount', streakCount);
-  localStorage.setItem('lastGoalMetDate', today.toISOString());
-  document.getElementById('streak-count').textContent = streakCount;
-  showNotification(`Congratulations! You have a ${streakCount}-day streak!`);
-}
+      if (remaining <= 0) {
+        if (this.settings.enableAlarmSound && this.alarmSound) {
+          this.alarmSound.play().catch(() => {});
+        }
+        this.showBrowserNotification('Break Over', 'Time to focus!');
+        this.updateTimerRingProgress(0, totalSeconds);
+        this.stopTimer();
+      } else {
+        this.displayTime = this.formatTime(remaining);
+        this.updateTimerRingProgress(remaining, totalSeconds);
+        this.saveTimerState();
+      }
+    },
 
-// Get Days Between Dates
-function getDaysBetween(date1, date2) {
-  const diffTime = date2.setHours(0, 0, 0, 0) - date1.setHours(0, 0, 0, 0);
-  return Math.floor(diffTime / (1000 * 60 * 60 * 24));
-}
+    getRemainingBreakTime() {
+      const totalSeconds = this.breakTimeCredit;
+      const elapsed = Math.floor((Date.now() - this.timerStartTime - this.pausedTime) / 1000);
+      const remaining = totalSeconds - elapsed;
+      return remaining > 0 ? remaining : 0;
+    },
 
-// Check if Days Between are Weekends
-function isWeekendDaysBetween(date1, date2) {
-  let currentDate = new Date(date1);
-  currentDate.setDate(currentDate.getDate() + 1);
-  while (currentDate <= date2) {
-    if (currentDate.getDay() !== 0 && currentDate.getDay() !== 6) {
-      return false;
-    }
-    currentDate.setDate(currentDate.getDate() + 1);
-  }
-  return true;
-}
+    updateTimerRingProgress(remaining, total) {
+      const percent = ((total - remaining) / total) * 100;
+      setTimeout(() => {
+        const ring = document.querySelector('[x-ref="timerRing"]');
+        if (ring) {
+          ring.style.background = `conic-gradient(
+            #10B981 ${(percent * 3.6)}deg,
+            rgba(0, 0, 0, 0.1) ${(percent * 3.6)}deg
+          )`;
+        }
+      }, 0);
+    },
 
-// Toggle Timer Visibility
-function toggleTimerVisibility() {
-  isTimerVisible = !isTimerVisible;
-  timerDisplay.style.visibility = isTimerVisible ? 'visible' : 'hidden';
-  toggleTimerVisibilityButton.innerHTML = isTimerVisible
-    ? '<i class="fas fa-eye-slash"></i>'
-    : '<i class="fas fa-eye"></i>';
-}
+    // Break Time Credit
+    updateBreakTimeCreditDisplay() {
+      localStorage.setItem('breakTimeCredit', this.breakTimeCredit);
+    },
 
-// Update Button Visibility
-function updateButtonVisibility() {
-  if (workTimer || breakTimer) {
-    playButton.classList.add('hidden');
-    pauseButton.classList.remove('hidden');
-    stopButton.classList.remove('hidden');
-  } else if (isPaused) {
-    playButton.classList.remove('hidden');
-    pauseButton.classList.add('hidden');
-    stopButton.classList.remove('hidden');
-  } else {
-    playButton.classList.remove('hidden');
-    pauseButton.classList.add('hidden');
-    stopButton.classList.add('hidden');
-  }
-}
+    // Time Formatting
+    formatTime(seconds) {
+      const hrs = Math.floor(seconds / 3600);
+      const mins = Math.floor((seconds % 3600) / 60);
+      const secs = seconds % 60;
+      return hrs > 0
+        ? `${this.pad(hrs)}:${this.pad(mins)}:${this.pad(secs)}`
+        : `${this.pad(mins)}:${this.pad(secs)}`;
+    },
 
-// Log History
-function logHistory(type, task, startTime, duration) {
-  const tr = document.createElement('tr');
-  tr.innerHTML = `
-    <td class="px-2 py-1 border-b dark:border-gray-600">${type}</td>
-    <td class="px-2 py-1 border-b dark:border-gray-600">${task || '-'}</td>
-    <td class="px-2 py-1 border-b dark:border-gray-600">${new Date(startTime).toLocaleTimeString()}</td>
-    <td class="px-2 py-1 border-b dark:border-gray-600">${formatTime(duration)}</td>
-    <td class="px-2 py-1 border-b dark:border-gray-600">
-      <button class="delete-button text-red-500 hover:text-red-700"><i class="fas fa-trash"></i></button>
-    </td>
-  `;
-  historyLogBody.appendChild(tr);
+    pad(num) {
+      return num.toString().padStart(2, '0');
+    },
 
-  // Add delete functionality with confirmation
-  tr.querySelector('.delete-button').addEventListener('click', () => {
-    confirmAction('Are you sure you want to delete this item?', () => {
-      tr.remove();
-    });
-  });
+    // Daily Progress
+    updateDailyProgress() {
+      localStorage.setItem('totalFocusedTime', this.totalFocusedTime);
+      if (this.totalFocusedTime >= this.settings.dailyGoal * 60) {
+        this.checkAndUpdateStreak();
+      }
+    },
 
-  // Save history log to localStorage
-  saveHistoryLog();
-}
+    // Streak Management
+    checkAndUpdateStreak() {
+      const today = new Date();
+      const lastGoalMetDate = localStorage.getItem('lastGoalMetDate');
 
-// Save History Log to localStorage
-function saveHistoryLog() {
-  const historyData = [];
-  historyLogBody.querySelectorAll('tr').forEach(tr => {
-    const tds = tr.querySelectorAll('td');
-    historyData.push({
-      type: tds[0].textContent,
-      task: tds[1].textContent,
-      startTime: tds[2].textContent,
-      duration: tds[3].textContent,
-    });
-  });
-  localStorage.setItem('historyLog', JSON.stringify(historyData));
-}
+      if (lastGoalMetDate) {
+        const lastDate = new Date(lastGoalMetDate);
+        const diffDays = this.getDaysBetween(lastDate, today);
 
-// Load History Log from localStorage
-function loadHistoryLog() {
-  const savedHistory = JSON.parse(localStorage.getItem('historyLog'));
-  if (savedHistory) {
-    savedHistory.forEach(item => {
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td class="px-2 py-1 border-b dark:border-gray-600">${item.type}</td>
-        <td class="px-2 py-1 border-b dark:border-gray-600">${item.task}</td>
-        <td class="px-2 py-1 border-b dark:border-gray-600">${item.startTime}</td>
-        <td class="px-2 py-1 border-b dark:border-gray-600">${item.duration}</td>
-        <td class="px-2 py-1 border-b dark:border-gray-600">
-          <button class="delete-button text-red-500 hover:text-red-700"><i class="fas fa-trash"></i></button>
-        </td>
-      `;
-      historyLogBody.appendChild(tr);
+        if (diffDays === 1 || (diffDays <= 3 && this.isWeekendDaysBetween(lastDate, today))) {
+          this.streakCount++;
+        } else if (diffDays === 0) {
+          return;
+        } else {
+          this.streakCount = 1;
+        }
+      } else {
+        this.streakCount = 1;
+      }
 
-      // Add delete functionality with confirmation
-      tr.querySelector('.delete-button').addEventListener('click', () => {
-        confirmAction('Are you sure you want to delete this item?', () => {
-          tr.remove();
-          saveHistoryLog();
-        });
+      localStorage.setItem('streakCount', this.streakCount);
+      localStorage.setItem('lastGoalMetDate', today.toISOString());
+      this.showNotification(`Congratulations! You have a ${this.streakCount}-day streak!`);
+    },
+
+    getDaysBetween(date1, date2) {
+      const d1 = new Date(date1);
+      const d2 = new Date(date2);
+      d1.setHours(0, 0, 0, 0);
+      d2.setHours(0, 0, 0, 0);
+      return Math.floor((d2 - d1) / (1000 * 60 * 60 * 24));
+    },
+
+    isWeekendDaysBetween(date1, date2) {
+      let current = new Date(date1);
+      current.setDate(current.getDate() + 1);
+      while (current <= date2) {
+        if (current.getDay() !== 0 && current.getDay() !== 6) {
+          return false;
+        }
+        current.setDate(current.getDate() + 1);
+      }
+      return true;
+    },
+
+    // History Management
+    logHistory(type, task, startTime, duration) {
+      const timeStr = new Date(startTime).toLocaleTimeString();
+      this.historyLog.unshift({
+        type,
+        task,
+        startTime: timeStr,
+        duration: this.formatTime(duration),
       });
-    });
-  }
-}
+      this.saveHistoryLog();
+    },
 
-// Show Notification
-function showNotification(message) {
-  notification.textContent = message;
-  notification.classList.remove('hidden');
-  setTimeout(() => {
-    notification.classList.add('hidden');
-  }, 3000);
-}
+    saveHistoryLog() {
+      localStorage.setItem('historyLog', JSON.stringify(this.historyLog));
+    },
 
-// Send Webhook
-function sendWebhook(status) {
-  if (settings.enableWebhooks && settings.webhookURL) {
-    fetch(settings.webhookURL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json;charset=utf-8'
-      },
-      body: JSON.stringify({ status })
-    }).catch(error => {
-      console.error('Webhook Error:', error);
-    });
-  }
-}
+    loadHistoryLog() {
+      const saved = localStorage.getItem('historyLog');
+      if (saved) {
+        this.historyLog = JSON.parse(saved);
+      }
+    },
 
-// Show Browser Notification
-function showBrowserNotification(title, body) {
-  if (Notification.permission === 'granted') {
-    new Notification(title, { body });
-  }
-}
+    deleteHistoryItem(index) {
+      this.historyLog.splice(index, 1);
+      this.saveHistoryLog();
+    },
 
-// Dark Mode Toggle
-function toggleDarkMode() {
-  document.body.classList.toggle('dark');
-  document.body.classList.toggle('dark-mode');
-}
+    // Notifications
+    showNotification(message) {
+      this.notificationMessage = message;
+      this.notification = true;
+      setTimeout(() => {
+        this.notification = false;
+      }, 3000);
+    },
 
-// Event Listeners
-playButton.addEventListener('click', () => {
-  startTimer();
-});
-pauseButton.addEventListener('click', () => {
-  pauseTimer();
-});
-stopButton.addEventListener('click', () => {
-  stopTimer();
-});
-toggleTimerVisibilityButton.addEventListener('click', toggleTimerVisibility);
-darkModeToggle.addEventListener('click', toggleDarkMode);
+    showBrowserNotification(title, body) {
+      if (Notification.permission === 'granted') {
+        new Notification(title, { body });
+      }
+    },
 
-// Save task input on change
-taskInput.addEventListener('input', () => {
-  localStorage.setItem('taskInput', taskInput.value);
-});
+    // Confirmation Dialog
+    confirmAction(message, callback) {
+      this.confirmMessage = message;
+      this.confirmCallback = callback;
+      this.showConfirm = true;
+    },
 
-// Settings Modal Event Listeners
-settingsButton.addEventListener('click', () => {
-  settingsModal.classList.remove('hidden');
-});
-closeSettingsButton.addEventListener('click', () => {
-  settingsModal.classList.add('hidden');
-});
-saveSettingsButton.addEventListener('click', () => {
-  saveSettings();
-  settingsModal.classList.add('hidden');
-});
-clearHistoryButton.addEventListener('click', () => {
-  confirmAction('Are you sure you want to clear the history?', () => {
-    historyLogBody.innerHTML = '';
-    localStorage.removeItem('historyLog');
-  });
-});
-resetAppButton.addEventListener('click', () => {
-  confirmAction('Are you sure you want to reset the app?', () => {
-    localStorage.clear();
-    location.reload();
-  });
-});
+    executeConfirmCallback() {
+      if (this.confirmCallback) {
+        this.confirmCallback();
+      }
+      this.showConfirm = false;
+      this.confirmCallback = null;
+    },
 
-// Confirmation Modal
-function confirmAction(message, callback) {
-  confirmModalMessage.textContent = message;
-  confirmModal.classList.remove('hidden');
-  confirmModalYes.onclick = () => {
-    callback();
-    confirmModal.classList.add('hidden');
-  };
-  confirmModalNo.onclick = () => {
-    confirmModal.classList.add('hidden');
+    // Settings Actions
+    confirmClearHistory() {
+      this.confirmAction('Are you sure you want to clear the history?', () => {
+        this.historyLog = [];
+        this.saveHistoryLog();
+      });
+    },
+
+    confirmResetApp() {
+      this.confirmAction('Are you sure you want to reset the app?', () => {
+        localStorage.clear();
+        location.reload();
+      });
+    },
+
+    // UI Actions
+    toggleTimerVisibility() {
+      this.isTimerVisible = !this.isTimerVisible;
+      setTimeout(() => {
+        const display = document.querySelector('[role="timer"]');
+        if (display) {
+          display.style.visibility = this.isTimerVisible ? 'visible' : 'hidden';
+        }
+      }, 0);
+    },
+
+
+    // Webhooks
+    sendWebhook(status) {
+      if (this.settings.enableWebhooks && this.settings.webhookURL) {
+        fetch(this.settings.webhookURL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json;charset=utf-8' },
+          body: JSON.stringify({ status }),
+        }).catch(err => console.error('Webhook Error:', err));
+      }
+    },
   };
 }
 
-// Initialize
-loadSettings();
-loadTimerState();
-loadHistoryLog();
-updateBreakTimeCreditDisplay();
-updateDailyProgress();
-updateButtonVisibility();
-
-// Request Notification Permission
-if ('Notification' in window) {
-  if (Notification.permission !== 'granted') {
-    Notification.requestPermission();
-  }
-}
-
-// Show break time credit when status changes to break
-if (isWorking) {
-  timerDisplay.textContent = formatTime(breakTimeCredit);
-}
+document.addEventListener('alpine:init', () => {
+  Alpine.store('focusApp', focusApp());
+});
